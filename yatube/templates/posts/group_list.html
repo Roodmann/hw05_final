@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load thumbnail %}
+
+{% load static %}
+
+{% block title %}{{ group.title }}{% endblock %}
+
+{% block content %} 
+  <h1>{{ group.title }}</h1>
+  <p>{{ group.description }}</p>
+  {% for post in page_obj %}
+    {% thumbnail post.image "200x200" crop="center" as im %}
+      <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}">
+    {% endthumbnail %}
+    <h4 class="card-title">Информация</h4>
+​    <p>{{ post.text|linebreaks|truncatewords:75 }}</p>
+​    <a href="{% url 'posts:post_detail' post.pk %}">
+      Подробная информация по этому посту ...</a>    
+  {% include 'posts/includes/post_text.html' %}
+  {% endfor %}
+  {% include 'posts/includes/paginator.html' %}
+ 
+  {% endblock %} 

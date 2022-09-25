@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Custom 403{% endblock %}
+{% block content %}
+    <h1>Custom 403</h1>
+    <br>
+    <a href="{% url 'posts:home' %}"> Переход на главную страницу проекта</a>
+{% endblock %}
+403csrf.html
+{% extends "base.html" %}
+{% block title %}Custom CSRF check error{% endblock %}
+{% block content %}
+  <h1>Custom CSRF check error. 403</h1>
+  <br>
+  <a href="{% url 'posts:home' %}"> Переход на главную страницу проекта</a>
+{% endblock %}
