@@ -1,5 +1,7 @@
 import shutil
 import tempfile
+
+from django import forms
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
@@ -8,6 +10,48 @@ from django.urls import reverse
 from ..models import Follow, Post, Group, User
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
+
+
+class PaginatorViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create(
+            username='Name',
+        )
+        cls.group = Group.objects.create(
+            title='Тестовое название группы',
+            slug='test_slug',
+            description='Тестовое описание группы',
+        )
+        post_list = [Post(text=f'Тестовый пост №{i}',
+                     group=cls.group, author=cls.user)
+                     for i in range(13)]
+        Post.objects.bulk_create(post_list)
+
+    def setUp(self):
+        self.unauthorized_client = Client()
+
+    def test_paginator_on_pages(self):
+        """Проверка пагинации на страницах."""
+        posts_on_first_page = 10
+        posts_on_second_page = 3
+        url_pages = [
+            reverse('posts:home'),
+            reverse('posts:group_list', kwargs={'slug': self.group.slug}),
+            reverse('posts:profile', kwargs={'username': 'Name'}),
+        ]
+        for rev in url_pages:
+            with self.subTest(rev=rev):
+                response = self.client.get(rev,
+                                           {'page': 1})
+                self.assertEqual(len(response.context['page_obj']),
+                                 posts_on_first_page)
+
+                response = self.client.get(rev,
+                                           {'page': 2})
+                self.assertEqual(len(response.context['page_obj']),
+                                 posts_on_second_page)
 
 
 class PostPagesTests(TestCase):
@@ -96,50 +140,6 @@ class PostPagesTests(TestCase):
         self.post_ifo_massage(response.context['post'])
 
 
-class PaginatorViewsTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = User.objects.create(
-            username='Name',
-        )
-        cls.group = Group.objects.create(
-            title='Тестовое название группы',
-            slug='test_slug',
-            description='Тестовое описание группы',
-        )
-        cls.test_posts = []
-        for i in range(13):
-            cls.test_posts.append(Post(
-                text=f'Тестовый пост №{i}',
-                group=cls.group,
-                author=cls.user))
-        Post.objects.bulk_create(cls.test_posts)
-
-    def setUp(self):
-        self.unauthorized_client = Client()
-
-    def test_paginator_on_pages(self):
-        """Проверка пагинации на страницах."""
-        posts_on_first_page = 10
-        posts_on_second_page = 3
-        url_pages = [
-            reverse('posts:home'),
-            reverse('posts:group_list', kwargs={'slug': self.group.slug}),
-            reverse('posts:profile', kwargs={'username': 'Name'}),
-        ]
-        for rev in url_pages:
-            with self.subTest(rev=rev):
-                self.assertEqual(len(self.unauthorized_client.get(
-                    rev).context.get('page_obj')),
-                    posts_on_first_page
-                )
-                self.assertEqual(len(self.unauthorized_client.get(
-                    rev + '?page=2').context.get('page_obj')),
-                    posts_on_second_page
-                )
-
-
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class ViewsTest(TestCase):
     @classmethod
@@ -172,6 +172,32 @@ class ViewsTest(TestCase):
                                         author=self.user,
                                         image=self.uploaded)
 
+    def correct_context_for_pages(self, context):
+        """Проверка контекста для главной страницы, групп и профайла."""
+        post_object_fields = {
+            context.text: self.post.text,
+            context.author: self.user,
+            context.group: self.group,
+            context.group.id: self.group.id,
+            context.image: self.post.image,
+        }
+        for item, expected in post_object_fields.items():
+            with self.subTest(item=item):
+                self.assertEqual(item, expected)
+
+    def assert_post_response(self, response):
+        """Проверяем context форм"""
+        form_fields = {
+            'text': forms.fields.CharField,
+            'group': forms.fields.ChoiceField,
+            'image': forms.ImageField,
+        }
+
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                self.assertIsInstance(form_field, expected)
+
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
@@ -203,6 +229,8 @@ class FollowViewsTest(TestCase):
         cls.author = User.objects.create_user(username='somename')
 
     def setUp(self):
+        self.guest_client = Client()
+        self.unauthorized_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
         self.authorized_client2 = Client()
@@ -230,3 +258,13 @@ class FollowViewsTest(TestCase):
             reverse('posts:home'))
         new_posts = response_follower.context['page_obj']
         self.assertIn(new_post_follower, new_posts)
+
+    def test_follow_unauthor(self):
+        """Не авторизованный пользователь,
+        может подписываться на других пользователей"""
+        follow_count = Follow.objects.count()
+        self.unauthorized_client.get(reverse('posts:profile_follow',
+                                             kwargs={'username': self.user}))
+        self.assertFalse(Follow.objects.filter(user=self.user,
+                                               author=self.user).exists())
+        self.assertEqual(Follow.objects.count(), follow_count)

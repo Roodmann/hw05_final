@@ -1,10 +1,10 @@
 import shutil
 import tempfile
+from http import HTTPStatus
+
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
-from http import HTTPStatus
 from django.test import Client, TestCase
-
 from django.urls import reverse
 from ..models import Comment, Post, Group, User
 

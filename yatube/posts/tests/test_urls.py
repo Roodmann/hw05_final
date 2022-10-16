@@ -1,4 +1,5 @@
 from http import HTTPStatus
+
 from django.test import TestCase, Client
 from ..models import Post, Group, User
 from django.urls import reverse
@@ -24,26 +25,26 @@ class URLTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        self.URL_INDEX = reverse('posts:home')
+        self.URL_GROUP = reverse('posts:group_list',
+                                 kwargs={'slug': self.group.slug})
+        self.URL_PROFILE = reverse('posts:profile',
+                                   kwargs={'username': 'Name'})
+        self.URL_POST = reverse('posts:post_detail',
+                                kwargs={'post_id': self.post.id})
+        self.URL_EDIT = reverse('posts:post_edit',
+                                kwargs={'post_id': self.post.id})
+        self.URL_CREATE = reverse('posts:create')
 
     def test_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
         templates_url_names = {
-            reverse(
-                'posts:home'): 'posts/index.html',
-            reverse(
-                'posts:group_list',
-                kwargs={'slug': self.group.slug}): 'posts/group_list.html',
-            reverse(
-                'posts:profile',
-                kwargs={'username': 'Name'}): 'posts/profile.html',
-            reverse(
-                'posts:post_detail',
-                kwargs={'post_id': self.post.id}): 'posts/post_detail.html',
-            reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}): 'posts/post_create.html',
-            reverse(
-                'posts:create'): 'posts/post_create.html',
+            self.URL_INDEX: 'posts/index.html',
+            self.URL_GROUP: 'posts/group_list.html',
+            self.URL_PROFILE: 'posts/profile.html',
+            self.URL_POST: 'posts/post_detail.html',
+            self.URL_EDIT: 'posts/post_create.html',
+            self.URL_CREATE: 'posts/post_create.html',
         }
 
         for address, template in templates_url_names.items():
